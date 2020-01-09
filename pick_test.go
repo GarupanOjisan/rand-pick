@@ -1,56 +1,49 @@
 package rand_pick
 
 import (
-	"github.com/garupanojisan/rand-pick/algorythm"
-	"reflect"
 	"testing"
-)
 
-func TestNewRandChoice(t *testing.T) {
-	tests := []struct {
-		name string
-		want *RandChoice
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewRandChoice(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewRandChoice() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+	"github.com/garupanojisan/rand-pick/algorythm"
+)
 
 func TestRandChoice_Pick(t *testing.T) {
 	type fields struct {
-		Probabilities *map[float64]interface{}
+		Probabilities *map[int]interface{}
 		Algorithm     algorythm.Algorithm
 	}
 	type args struct {
-		num int64
+		num int
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []interface{}
-		wantErr bool
+		name      string
+		fields    fields
+		args      args
+		want      map[interface{}]float64
+		wantErr   bool
+		tolerance float64
 	}{
 		{
 			name: "Algorithm A",
 			fields: fields{
-				Probabilities: &map[float64]interface{}{
-					0.9: "a",
-					0.1: "b",
+				Probabilities: &map[int]interface{}{
+					40: "N",
+					30: "R",
+					20: "SR",
+					10: "UR",
 				},
-				Algorithm: algorythm.NewAPicker(),
+				Algorithm: algorythm.NewWeightedPicker(),
 			},
 			args: args{
-				num: 1,
+				num: 1000000,
 			},
-			want:    []interface{}{"a", "b"},
-			wantErr: false,
+			want: map[interface{}]float64{
+				"N":  0.4,
+				"R":  0.3,
+				"SR": 0.2,
+				"UR": 0.1,
+			},
+			wantErr:   false,
+			tolerance: 0.001,
 		},
 	}
 	for _, tt := range tests {
@@ -64,22 +57,31 @@ func TestRandChoice_Pick(t *testing.T) {
 				t.Errorf("Pick() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if int64(len(got)) != tt.args.num {
-				t.Errorf("Pick() len(got) = %d, len(want) %d", len(got), tt.args.num)
-				return
-			}
-
-			ok := false
-			for _, w := range tt.want {
-				if reflect.DeepEqual(got, w) {
-					ok = true
-					break
+			freq := getFrequencyMap(&got)
+			for item, f := range freq {
+				w := tt.want[item]
+				if (w-tt.tolerance) > f || f > (w+tt.tolerance) {
+					t.Errorf("Error: out of tolerance")
+					return
 				}
-			}
-			if !ok {
-				t.Errorf("Pick() got = %v, want %v", got, tt.want)
-				return
 			}
 		})
 	}
+}
+
+func getFrequencyMap(items *[]interface{}) map[interface{}]float64 {
+	res := map[interface{}]float64{}
+	count := 0.0
+	for _, item := range *items {
+		if _, ok := res[item]; ok {
+			res[item]++
+		} else {
+			res[item] = 0
+		}
+		count++
+	}
+	for item, c := range res {
+		res[item] = c / count
+	}
+	return res
 }
